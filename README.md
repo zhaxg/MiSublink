@@ -46,7 +46,6 @@
   - 明亮/暗黑模式自动切换
   - 磨砂玻璃质感现代化设计
   - 完善的交互提示和加载状态
-  - 完善的交互提示和加载状态
   - 响应式布局,支持移动端
 
 - **🌍 公开主页 (Explore)**
@@ -78,15 +77,11 @@
   - 自动更新节点数和流量信息
 
 - **🛰️ VPS 探针**
-  - 节点状态与资源曲线监控
-  - 告警与通知联动
-  - 需要绑定 D1 数据库 (MISUB_DB)
-  - 需要在设置中切换存储模式为 D1
-  - 支持 ICMP/TCP/HTTP 网络监测（需执行最新 schema.sql）
-  - 公开页地址：`/vps`（如设置了公开页 Token，则需 `?token=xxx`）
-
-- **🚫 PWA 已移除**
-  - 已彻底禁用 PWA/Service Worker，避免缓存导致的白屏问题
+  - 支持节点在线 / 离线 / 恢复 / 过载一体化监控
+  - 实时查看 CPU、内存、磁盘、流量与负载曲线
+  - 支持 ICMP / TCP / HTTP 网络监测与 Telegram 告警联动
+  - 提供一键安装命令、上报地址、节点密钥与公开页 `/vps`
+  - 需绑定 D1 数据库 (`MISUB_DB`) 并在设置中切换存储模式为 D1
 
 ### 💾 双重存储支持
 
@@ -193,8 +188,6 @@ wrangler d1 execute misub --file=schema.sql --remote
 > ⚠️ 已在使用 D1 的用户升级后也需要在 D1 控制台执行最新 `schema.sql`（新增 vps_network_targets / vps_network_samples 字段和表）。
 > ⚠️ VPS 探针新增了 `overload_state_json` 字段，升级后请执行最新 `schema.sql`。
 
-> ⚠️ PWA/Service Worker 已移除，升级后建议清理浏览器缓存与旧的 Service Worker。
-
 若已绑定 D1 并出现如下错误：
 `D1_ERROR: table vps_network_targets has no column named scheme`
 说明 D1 表结构未更新，请在 D1 控制台执行最新 `schema.sql`。
@@ -218,8 +211,8 @@ wrangler d1 execute misub --file=schema.sql --remote
 | 变量名 | 说明 | 示例 |
 |--------|------|------|
 | `CORS_ORIGINS` | 允许跨域访问的来源(逗号分隔)，同域可不填 | `https://example.com,http://localhost:5173` |
-| `MISUB_PUBLIC_URL` | 对外访问的公开域名，用于订阅转换回调（Docker/反代必填） | `https://your-domain.com` |
-| `MISUB_CALLBACK_URL` | 订阅转换回调基础地址（优先级高于 MISUB_PUBLIC_URL） | `http://misub:8080` |
+| `MISUB_PUBLIC_URL` | 站点对外访问的公开域名，用于生成订阅转换回调地址 | `https://your-domain.pages.dev` |
+| `MISUB_CALLBACK_URL` | 订阅转换回调基础地址（优先级高于 MISUB_PUBLIC_URL），通常保持默认即可 | `https://your-domain.pages.dev` |
 
 **前端构建变量（可选）：**
 
@@ -234,113 +227,7 @@ wrangler d1 execute misub --file=schema.sql --remote
 完成配置后,在 `部署` 选项卡重新部署项目。
 
 ---
-<s>
-## 🐳 VPS / Docker 部署
-
-适用于自建服务器部署（与 Cloudflare Pages 保持功能兼容）。
-
-### 1. 构建并启动
-
-```bash
-docker compose up -d --build
-```
-
-默认端口为 `8080`，访问 `http://<vps-ip>:8080`。
-
-> ⚠️ 注意：仓库根目录的 `docker-compose.yml` 为 **镜像部署** 配置（默认 `ghcr.io/imzyb/misub:latest`）。如需源码构建，请自行新建包含 `build: .` 的 compose 文件。
-
-### 2. 环境变量
-
-在 `docker-compose.yml` 中配置：
-
-- `ADMIN_PASSWORD` 管理员密码（可选，默认 `admin`）
-- `COOKIE_SECRET` Cookie 加密密钥（可选，推荐留空自动生成）
-- `CORS_ORIGINS` 允许跨域访问的来源（可选）
-- `PORT` 服务端口（默认 8080）
-- `MISUB_DB_PATH` SQLite 数据库路径（默认 `/app/data/misub.db`）
-- `MISUB_PUBLIC_URL` 对外访问的公开域名，用于订阅转换回调（反代/公网环境建议配置）
-- `MISUB_CALLBACK_URL` 订阅转换回调基础地址（优先级高于 MISUB_PUBLIC_URL）
-
-> ⚠️ **关于修改 PORT**：如果将 `PORT` 修改为非 8080 的值（如 `3000`），需要同步修改 `docker-compose.yml` 中的 `ports` 映射，例如 `"3000:3000"`，确保宿主机端口与容器内端口一致。
-
-### 3. 数据持久化
-
-默认通过 `./data` 目录持久化数据库文件。
-
----
-
-## 📦 GHCR 镜像部署（免源码）
-
-最小化 VPS 部署步骤：
-
-1. 新建目录并进入：
-```bash
-mkdir -p /opt/misub && cd /opt/misub
-```
-
-2. 创建 `docker-compose.yml`（使用 GHCR 镜像）：
-```yaml
-services:
-  misub:
-    image: ghcr.io/imzyb/misub:latest
-    ports:
-      - "8080:8080"
-    environment:
-      PORT: 8080
-      MISUB_DB_PATH: /app/data/misub.db
-      ADMIN_PASSWORD: "change_me"
-      COOKIE_SECRET: "change_me_too"
-      # CORS_ORIGINS: "https://example.com,http://localhost:5173"
-      # MISUB_PUBLIC_URL: "https://your-domain.com"
-      # MISUB_CALLBACK_URL: "https://your-domain.com"
-    volumes:
-      - ./data:/app/data
-    restart: unless-stopped
-```
-
-3. 启动并拉取镜像：
-```bash
-docker compose pull
-docker compose up -d
-```
-
-4. 访问：
-```
-http://<vps-ip>:8080
-```
-
----
-
-## ☁️ Zeabur 一键部署
-
-支持通过 [Zeabur](https://zeabur.com) 平台一键部署：
-
-[![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/O066B9)
-
-### 手动部署步骤
-
-1. 在 Zeabur 创建新项目，选择 **从 Git 部署**
-2. 连接 GitHub 并选择你 Fork 的 MiSub 仓库
-3. 等待构建完成（使用 Docker 方式构建）
-4. 在服务设置中添加环境变量：
-
-| 变量名 | 说明 | 必填 |
-|--------|------|------|
-| `ADMIN_PASSWORD` | 管理员密码 | ❌ (默认 `admin`) |
-| `COOKIE_SECRET` | Cookie 加密密钥 | ❌ (自动生成) |
-| `MISUB_DB_PATH` | 数据库路径（建议 `/app/data/misub.db`） | ✅ |
-
-5. 绑定域名或使用 Zeabur 提供的 `.zeabur.app` 域名
-
-> ⚠️ **注意**: Zeabur 部署默认使用端口 8080，已在 `zeabur.json` 中配置。
-> ⚠️ **注意**: 请在 Zeabur 中启用持久化存储并挂载到 `/app/data`，否则数据库会在重建后丢失。
-</s>
-
 ## 💡 使用说明
-
-### 登录管理界面
-
-
 
 ### 登录管理界面
 
@@ -397,12 +284,51 @@ MiSub 的几个适配细节：
 3. 点击 `迁移数据到 D1 数据库`
 4. 确认迁移,等待完成
 
+### 🛰️ VPS 探针使用指南
+
+#### 使用步骤
+
+1. **准备环境**
+   - 绑定 `MISUB_DB`，并在后台将存储模式切换为 `D1`
+   - 在 D1 控制台执行最新 `schema.sql`
+   - 如需接收告警，建议先完成 Telegram 通知配置
+
+2. **新增监控节点**
+   - 进入后台的 `VPS 探针`
+   - 填写节点名称、标签、分组、地区、月流量限额等信息
+   - 按需开启“应用全局监测目标”，复用统一的网络监测配置
+
+3. **部署探针脚本**
+   - 点击节点右侧的 `安装`
+   - 复制一键安装命令，或使用页面提供的 `reportUrl`、`nodeId`、`nodeSecret`
+   - 在被监控 VPS 上执行并保持定时上报，**推荐上报频率为 `60 秒`**
+
+4. **查看与分享**
+   - 后台可查看在线状态、资源曲线、流量统计与告警动态
+   - 若开启公开页，可通过 `/vps` 访问；如配置了公开页 Token，则使用 `/vps?token=xxx`
+
+#### 功能特点
+
+- **状态监控**：自动识别节点在线、离线、恢复与过载状态
+- **资源统计**：支持 CPU、内存、磁盘、负载、累计上下行流量与月流量限额展示
+- **网络监测**：支持 `ICMP` / `TCP` / `HTTP` 目标检测，适合排查线路波动
+- **告警联动**：复用 Telegram 通知设置，推送离线、恢复、负载异常消息
+- **公开展示**：支持 VPS 探针公开页、自定义标题文案与节点展示布局
+
+#### 注意事项
+
+- VPS 探针 **仅支持 `D1` 存储模式**，`KV` 模式下不可用
+- 升级后若遇到表结构报错，请在 D1 中重新执行最新 `schema.sql`
+- 如果启用了 **HMAC 上报签名校验**，请确保探针脚本与后台密钥一致
+- `nodeSecret` 和公开页 `token` 都属于敏感信息，请勿泄露给他人
+- 不建议把上报间隔设置得过低，通常 `60 秒` 已足够稳定
+
 ### 🛰️ 代理抓取 (Vercel)
 
-如果您的服务器 IP 不太纯净，或者由于网络限制导致抓取订阅内容失败，可以使用高效的 Edge Functions 代理：
+如果由于网络限制导致订阅内容抓取失败，可以额外部署一个用于抓取转发的 Edge Functions 代理：
 - [Vercel Fetch Proxy 部署指南](docs/fetch-proxy-tutorial.md)
 
----
+> 说明：该代理仅作为可选的辅助抓取组件，不属于 MiSub 主站部署方式。MiSub 主站仍然仅支持部署在 Cloudflare Pages。
 
 ## 📊 存储类型对比
 
@@ -427,7 +353,7 @@ MiSub 的几个适配细节：
 - **前端**: Vue 3 + Vite + Tailwind CSS
 - **后端**: Cloudflare Pages Functions
 - **存储**: Cloudflare KV + D1 数据库
-- **部署**: Cloudflare Pages
+- **部署平台**: 仅 Cloudflare Pages
 
 ---
 
@@ -435,9 +361,11 @@ MiSub 的几个适配细节：
 
 ### v2.4.0 (2026-01-14)
 
-**✨ 更新内容:**
-- **版本更新** - 项目版本升级至 v2.4.0，为了方便拉取与版本管理
-- **Docker 优化** - Docker 镜像标签默认使用具体版本号
+**✨ 重点更新：VPS 探针功能上线**
+- **新增 VPS 探针** - 项目正式加入 VPS 节点监控能力，可统一管理在线状态与资源上报
+- **资源与流量可视化** - 支持 CPU、内存、磁盘、负载、上下行流量的集中展示
+- **网络监测与告警** - 支持 `ICMP` / `TCP` / `HTTP` 检测，并联动 Telegram 推送离线、恢复、过载提醒
+- **公开页分享** - 支持通过 `/vps` 对外展示探针数据，便于公开状态页或自用巡检
 
 
 ### v2.3.0 (2026-01-03)

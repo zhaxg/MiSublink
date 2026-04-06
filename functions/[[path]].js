@@ -29,6 +29,7 @@ import { createDisguiseResponse } from './modules/disguise-page.js';
 import { StorageFactory, SettingsCache } from './storage-adapter.js';
 import { KV_KEY_SETTINGS } from './modules/config.js';
 import { handleCronTrigger } from './modules/notifications.js';
+import { handleVpsCleanup } from './modules/handlers/vps-monitor-handler.js';
 import { authMiddleware } from './modules/auth-middleware.js';
 
 function parseCorsOrigins(env, requestUrl) {
@@ -185,6 +186,25 @@ export async function onRequest(context) {
                 }
 
                 return await handleCronTrigger(env);
+            } else if (url.pathname === '/cron/vps-cleanup') {
+                const storageAdapter = StorageFactory.createAdapter(env, await StorageFactory.getStorageType(env));
+                const settings = await storageAdapter.get(KV_KEY_SETTINGS) || {};
+                const expectedSecret = settings.cronSecret;
+                if (!expectedSecret) {
+                    return createJsonResponse({
+                        error: 'Cron Secret 未配置',
+                        hint: '请在设置页面的「自动任务配置」中设置 Cron Secret'
+                    }, 500);
+                }
+                const cronAuthHeader = request.headers.get('Authorization');
+                const cronSecretParam = url.searchParams.get('secret');
+                const isAuthorized =
+                    cronAuthHeader === `Bearer ${expectedSecret}` ||
+                    cronSecretParam === expectedSecret;
+                if (!isAuthorized) {
+                    return createJsonResponse({ error: 'Unauthorized' }, 401);
+                }
+                return await handleVpsCleanup(request, env);
             } else {
                 const isLocalhost = ['localhost', '127.0.0.1'].includes(url.hostname);
 
@@ -232,7 +252,6 @@ export async function onRequest(context) {
                     '/dashboard',
                     '/profile',
                     '/explore', // [新增] 公开页面
-                    '/offline',  // [修复] PWA 离线页面
                     customLoginPath // [新增] 自定义登录路径
                 ].some(route => url.pathname === route || url.pathname.startsWith(route + '/'));
 
@@ -240,14 +259,12 @@ export async function onRequest(context) {
                     && url.pathname !== '/login'
                     && url.pathname !== customLoginPath
                     && !url.pathname.startsWith('/explore')
-                    && !url.pathname.startsWith('/vps')
-                    && url.pathname !== '/offline';
+                    && !url.pathname.startsWith('/vps');
 
                 // Route protection for SPA pages
                 // If accessing a protected route without auth, redirect to login
                 // [Fix] Exclude /explore from auth check
                 // [Fix] Skip auth check on localhost to avoid port 8787/5173 sync issues during dev
-                // [修复] 排除 /offline 路由的认证检查
                 if (customLoginPath !== defaultLoginPath && url.pathname === defaultLoginPath && !isLocalhost) {
                     return new Response(null, {
                         status: 302,

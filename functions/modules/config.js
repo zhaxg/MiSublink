@@ -27,11 +27,21 @@ export const DEFAULT_SETTINGS = {
     subConverterUdp: false,
     builtinLoonSkipCertVerify: false,
     enableAccessLog: false,
+    accessLogPersistenceMode: 'light',
     NotifyThresholdDays: 3,
     NotifyThresholdPercent: 90,
     enableTrafficNode: false,
     enablePublicPage: true,
     storageType: 'kv',
+    // 新增：借鉴Sub-Store和miaomiaowu的功能
+    enableSubscriptionSync: true,      // 启用订阅同步
+    subscriptionCacheExpireMinutes: 60, // 订阅缓存过期时间（分钟）
+    enableTrafficMonitor: true,        // 启用流量监控
+    enableTemplateEngine: true,        // 启用模板引擎
+    enableEnhancedLogging: true,       // 启用增强日志
+    ignoreFailedSubscriptions: false,  // 忽略失败的订阅（Sub-Store特性）
+    maxSubscriptionConcurrency: 3,     // 最大订阅并发数
+    defaultUserAgent: 'clash-meta/2.4.0', // 默认User-Agent
     defaultPrefixSettings: {
         enableManualNodes: true,
         enableSubscriptions: true,
@@ -92,10 +102,10 @@ export const DEFAULT_SETTINGS = {
         diskWarnPercent: 90,
         overloadConfirmCount: 2,
         alertCooldownMinutes: 15,
-        networkSampleIntervalMinutes: 5,
-        reportIntervalMinutes: 1,
-        reportStoreIntervalMinutes: 1,
-        networkTargetsLimit: 3,
+        networkSampleIntervalMinutes: 10,
+        reportIntervalMinutes: 5,
+        reportStoreIntervalMinutes: 15,
+        networkTargetsLimit: 2,
         publicPageEnabled: false,
         publicPageToken: '',
         publicThemePreset: 'default',

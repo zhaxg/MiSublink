@@ -30,10 +30,10 @@ const vpsMonitorConfig = computed({
       notifyOverload: true,
       reportRetentionDays: 30,
       cooldownIgnoreRecovery: true,
-      networkSampleIntervalMinutes: 5,
-      reportIntervalMinutes: 1,
-        reportStoreIntervalMinutes: 1,
-        networkTargetsLimit: 3,
+      networkSampleIntervalMinutes: 10,
+      reportIntervalMinutes: 5,
+        reportStoreIntervalMinutes: 15,
+        networkTargetsLimit: 2,
         publicPageEnabled: false,
         publicPageToken: '',
         publicThemePreset: 'default',
@@ -143,6 +143,9 @@ const openPreview = (card) => {
       </p>
       <p class="text-xs text-amber-600 dark:text-amber-400 mt-2">
         使用 VPS 探针前请确保已绑定 D1 数据库（MISUB_DB），并在存储设置中切换为 D1 模式。
+      </p>
+      <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">
+        免费版 D1 配额有限，默认已采用更保守的上报、落库和网络采样间隔；如无必要，不建议再继续缩短。
       </p>
     </div>
 
@@ -444,7 +447,7 @@ const openPreview = (card) => {
         </div>
         <div class="flex items-center justify-between p-3 bg-white/70 dark:bg-gray-900/50 border border-gray-200/60 dark:border-white/10 misub-radius-lg">
           <div>
-            <div class="text-sm font-medium text-gray-900 dark:text-gray-200">公开页页眉</div>
+            <div class="text-sm font-medium text-gray-900 dark:text-gray-200">公开页页脚</div>
             <div class="text-xs text-gray-500 dark:text-gray-400">显示 MiSub 页脚</div>
           </div>
           <Switch :model-value="vpsMonitorConfig.publicPageShowFooter !== false" @update:model-value="updateField('publicPageShowFooter', $event)" />
