@@ -1,0 +1,81 @@
+name: Release Merge
+
+# 每天把镜像 main（上游同步源）和自定义功能分支合并进 release（生产部署源）。
+# 依赖 fork-sync.yml 先完成（06:00 北京时间），本 workflow 排在其后（07:00）。
+# 冲突时中止并保留 release 上一个正常状态，需手动解决后重跑。
+
+on:
+  schedule:
+    - cron: "0 23 * * *"     # 每天北京时间 07:00（UTC 23:00）
+  workflow_dispatch:
+    inputs:
+      branches:
+        description: "要合并到 release 的分支（空格分隔），留空则用仓库 Variable RELEASE_BRANCHES，再缺省为 feat/dns-override"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  merge_into_release:
+    name: Merge main + features into release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout release
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.SYNC_PAT != '' && secrets.SYNC_PAT || secrets.GITHUB_TOKEN }}
+          ref: release
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          set -euo pipefail
+          git config user.name "GitHub Actions Bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge main into release
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          if git merge --no-edit origin/main >/dev/null 2>&1; then
+            echo "✅ main 已合并（或已是最新）"
+          else
+            echo "::error::合并 origin/main 到 release 冲突，已中止，release 未变。手动处理：git fetch origin main && git merge origin/main"
+            git merge --abort
+            exit 1
+          fi
+
+      - name: Merge feature branches
+        env:
+          SYNC_PAT: ${{ secrets.SYNC_PAT }}
+          BRANCHES: ${{ inputs.branches != '' && inputs.branches || (vars.RELEASE_BRANCHES != '' && vars.RELEASE_BRANCHES || 'feat/dns-override') }}
+        run: |
+          set -euo pipefail
+          git fetch --prune origin
+          for b in ${BRANCHES}; do
+            if ! git rev-parse --verify "origin/${b}" >/dev/null 2>&1; then
+              echo "::warning::origin/${b} 不存在，跳过"
+              continue
+            fi
+            if git merge --no-edit "origin/${b}" >/dev/null 2>&1; then
+              echo "✅ ${b} 已合并"
+            else
+              echo "::error::合并 ${b} 到 release 冲突，已中止，release 未变。手动处理：git fetch origin && git merge origin/${b}"
+              git merge --abort
+              exit 1
+            fi
+          done
+
+      - name: Push release
+        env:
+          SYNC_PAT: ${{ secrets.SYNC_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -n "${SYNC_PAT:-}" ]; then
+            # 默认 GITHUB_TOKEN 无法推送含 .github/workflows 变更的提交，配了 PAT 才保险
+            git remote set-url origin "https://x-access-token:${SYNC_PAT}@github.com/${{ github.repository }}.git"
+          fi
+          git push origin release
