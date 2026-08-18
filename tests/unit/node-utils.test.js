@@ -120,4 +120,40 @@ describe('node-utils', () => {
             }
         });
     });
+
+    it('VLESS XHTTP 节点的 xhttp-opts path/host/mode 应生成到 URL 并可回环解析', () => {
+        const proxy = {
+            name: 'XHTTP-1',
+            type: 'vless',
+            server: 'xhttp.example.com',
+            port: 443,
+            uuid: '8f20ce8e-917f-4946-e03f-31a7bbf8a965',
+            network: 'xhttp',
+            tls: true,
+            servername: 'example.org',
+            'xhttp-opts': {
+                path: '/argo',
+                host: 'example.org',
+                mode: 'packet-up'
+            }
+        };
+
+        const url = convertClashProxyToUrl(proxy);
+        const proxies = urlsToClashProxies([url]);
+
+        expect(url).toContain('type=xhttp');
+        expect(url).toContain('path=%2Fargo');
+        expect(url).toContain('host=example.org');
+        expect(url).toContain('mode=packet-up');
+        expect(proxies).toHaveLength(1);
+        expect(proxies[0]).toMatchObject({
+            type: 'vless',
+            network: 'xhttp',
+            'xhttp-opts': {
+                path: '/argo',
+                host: 'example.org',
+                mode: 'packet-up'
+            }
+        });
+    });
 });

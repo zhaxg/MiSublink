@@ -162,6 +162,31 @@ expect(result).toContain('security=reality')
 expect(result).toContain('pbk=test-public-key') // 标准参数名为 pbk
 expect(result).toContain('sid=abc123')
 })
+
+            it('应正确转换 XHTTP 传输配置并保留 path/host/mode', () => {
+                const proxy = {
+                    name: 'VLESS XHTTP',
+                    type: 'vless',
+                    server: 'xhttp.example.com',
+                    port: 443,
+                    uuid: 'xhttp-uuid',
+                    network: 'xhttp',
+                    'xhttp-opts': {
+                        path: '/argo',
+                        host: 'example.org',
+                        mode: 'packet-up'
+                    },
+                    tls: true
+                }
+
+                const result = convertClashProxyToUrl(proxy)
+                expect(result).toBeTruthy()
+                expect(result).toMatch(/^vless:\/\//)
+                expect(result).toContain('type=xhttp')
+                expect(result).toContain('path=%2Fargo')
+                expect(result).toContain('host=example.org')
+                expect(result).toContain('mode=packet-up')
+            })
         })
 
         describe('Hysteria2', () => {
